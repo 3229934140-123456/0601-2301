@@ -1,0 +1,14 @@
+[
+  {
+    "exception_id": "EXC37346B2BED75",
+    "order_id": "ORD2026060100009",
+    "exception_type": "missing_rule",
+    "description": "产品 DATA099 未配置分成规则",
+    "status": "ignored",
+    "fix_note": "DATA099暂不结算",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T20:21:11",
+    "created_at": "2026-06-14T20:20:09",
+    "period": "2026-06"
+  }
+]

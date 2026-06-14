@@ -24,13 +24,15 @@ class SplitCalculator:
     def calculate_order_split(
         self, order: Order, rule: SplitRule
     ) -> Tuple[List[SplitDetail], List[str]]:
-        """对单个订单进行分账计算"""
+        """对单个订单进行分账计算，确保三方合计精确等于净金额（尾差分摊到服务方）"""
         details: List[SplitDetail] = []
         remarks: List[str] = []
 
         net_amount = order.net_amount
         if net_amount <= 0:
             return details, ["订单净金额为0，跳过分账"]
+
+        net_cents = int(round(net_amount * 100))
 
         roles_config = [
             (SplitRole.PROVIDER, rule.provider_rate, order.provider_id, order.provider_name),
@@ -43,16 +45,19 @@ class SplitCalculator:
             raw_amounts[role] = net_amount * rate
 
         total_raw = sum(raw_amounts.values())
+        scaled = {}
         if rule.cap_amount is not None and total_raw > rule.cap_amount:
             scale = rule.cap_amount / total_raw
             remarks.append(f"触发封顶: 原始合计{total_raw:.2f} > 封顶{rule.cap_amount:.2f}，按比例缩放")
             for role in raw_amounts:
-                raw_amounts[role] *= scale
+                scaled[role] = raw_amounts[role] * scale
         elif rule.floor_amount is not None and total_raw < rule.floor_amount:
             scale = rule.floor_amount / total_raw
             remarks.append(f"触发保底: 原始合计{total_raw:.2f} < 保底{rule.floor_amount:.2f}，按比例缩放")
             for role in raw_amounts:
-                raw_amounts[role] *= scale
+                scaled[role] = raw_amounts[role] * scale
+        else:
+            scaled = dict(raw_amounts)
 
         if order.refund_amount > 0 or order.discount_amount > 0:
             refund_note = []
@@ -62,7 +67,29 @@ class SplitCalculator:
                 refund_note.append(f"折让{order.discount_amount:.2f}")
             remarks.append("已扣除: " + ", ".join(refund_note))
 
+        cents = {}
+        assigned_cents = 0
+        service_role = SplitRole.SERVICE
+        for idx, (role, rate, org_id, org_name) in enumerate(roles_config):
+            if role == service_role:
+                continue
+            c = int(round(scaled[role] * 100))
+            cents[role] = c
+            assigned_cents += c
+
+        cents[service_role] = net_cents - assigned_cents
+        if abs(cents[service_role] - int(round(scaled[service_role] * 100))) > 1:
+            pass
+
+        total_cents_check = sum(cents.values())
+        if total_cents_check != net_cents:
+            diff = net_cents - total_cents_check
+            cents[service_role] += diff
+            remarks.append(f"尾差调整{diff / 100:.2f}元至服务方")
+
         for role, rate, org_id, org_name in roles_config:
+            final_amt = round(cents[role] / 100, 2)
+            raw_amt = round(net_amount * rate, 2)
             detail = SplitDetail(
                 detail_id=generate_id("SD"),
                 order_id=order.order_id,
@@ -73,8 +100,8 @@ class SplitCalculator:
                 order_amount=order.order_amount,
                 net_amount=net_amount,
                 rate=rate,
-                raw_amount=round(net_amount * rate, 2),
-                final_amount=round(raw_amounts[role], 2),
+                raw_amount=raw_amt,
+                final_amount=final_amt,
                 period=order.period,
                 remark="; ".join(remarks) if remarks else "",
             )
@@ -281,3 +308,122 @@ class SplitCalculator:
             "open_exceptions": open_exc_detail,
             "excluded_orders": getattr(trial, "excluded_orders", []),
         }
+
+
+def recalc_from_details(details: List[SplitDetail]) -> Dict[str, Any]:
+    """从分账明细使用分精度重算合计，保证所有环节口径一致（无浮点误差）"""
+    from collections import defaultdict
+    from .models import SplitRole
+
+    order_ids = set()
+    total_cents = 0
+    provider_cents = 0
+    channel_cents = 0
+    service_cents = 0
+    order_net_cents = 0
+
+    org_cents = defaultdict(int)
+    org_order_count = defaultdict(set)
+    org_meta = {}
+
+    for d in details:
+        fc = int(round(d.final_amount * 100))
+        nc = int(round(d.net_amount * 100))
+        oc = int(round(d.order_amount * 100))
+
+        if d.role == SplitRole.PROVIDER:
+            provider_cents += fc
+            order_ids.add(d.order_id)
+            order_net_cents += nc
+            total_cents += fc
+        elif d.role == SplitRole.CHANNEL:
+            channel_cents += fc
+            total_cents += fc
+        elif d.role == SplitRole.SERVICE:
+            service_cents += fc
+            total_cents += fc
+
+        key = (d.role.value, d.org_id)
+        org_cents[key] += fc
+        org_order_count[key].add(d.order_id)
+        org_meta[key] = {
+            "org_name": d.org_name,
+            "role": d.role.value,
+            "org_id": d.org_id,
+        }
+
+    org_summary = []
+    for key, meta in org_meta.items():
+        order_amount_cents = 0
+        net_amount_cents = 0
+        rates = []
+        for d in details:
+            if (d.role.value, d.org_id) == key:
+                order_amount_cents += int(round(d.order_amount * 100))
+                net_amount_cents += int(round(d.net_amount * 100))
+                rates.append(d.rate)
+        avg_rate = sum(rates) / len(rates) if rates else 0
+        org_summary.append({
+            "role": meta["role"],
+            "org_id": meta["org_id"],
+            "org_name": meta["org_name"],
+            "order_count": len(org_order_count[key]),
+            "order_amount": round(order_amount_cents / 100, 2),
+            "net_amount": round(net_amount_cents / 100, 2),
+            "split_amount": round(org_cents[key] / 100, 2),
+            "avg_rate": round(avg_rate, 4),
+        })
+
+    three_total_cents = provider_cents + channel_cents + service_cents
+    return {
+        "detail_count": len(details),
+        "order_count": len(order_ids),
+        "total_amount": round(order_net_cents / 100, 2),
+        "provider_total": round(provider_cents / 100, 2),
+        "channel_total": round(channel_cents / 100, 2),
+        "service_total": round(service_cents / 100, 2),
+        "three_total": round(three_total_cents / 100, 2),
+        "diff": round((order_net_cents - three_total_cents) / 100, 2),
+        "org_summary": sorted(org_summary, key=lambda x: (x["role"], x["org_id"])),
+    }
+
+
+def recalc_voucher_from_details(details: List[SplitDetail]) -> Dict[str, Any]:
+    """从已确认明细用分精度重算凭证汇总（和recalc_from_details同一口径）"""
+    from collections import defaultdict
+    from .models import SplitRole
+
+    grouped_cents = defaultdict(int)
+    grouped_order_ids = defaultdict(set)
+    grouped_meta = {}
+    total_cents = 0
+
+    for d in details:
+        if not d.org_id:
+            continue
+        key = (d.role, d.org_id)
+        fc = int(round(d.final_amount * 100))
+        grouped_cents[key] += fc
+        grouped_order_ids[key].add(d.order_id)
+        grouped_meta[key] = {
+            "role": d.role,
+            "org_id": d.org_id,
+            "org_name": d.org_name,
+        }
+        total_cents += fc
+
+    vouchers_data = []
+    for key, meta in grouped_meta.items():
+        vouchers_data.append({
+            "role": meta["role"],
+            "org_id": meta["org_id"],
+            "org_name": meta["org_name"],
+            "order_count": len(grouped_order_ids[key]),
+            "total_amount": round(grouped_cents[key] / 100, 2),
+        })
+
+    return {
+        "voucher_count": len(vouchers_data),
+        "total_amount": round(total_cents / 100, 2),
+        "vouchers": sorted(vouchers_data, key=lambda x: (x["role"].value, x["org_id"])),
+    }

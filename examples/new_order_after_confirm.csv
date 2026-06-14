@@ -1,0 +1,2 @@
+order_id,product_code,order_date,provider_id,provider_name,channel_id,channel_name,service_id,service_name,order_amount,refund_amount,discount_amount,currency
+ORD2026060100009,DATA099,2026-06-05,PROV001,中证数据服务有限公司,CHN001,大数据交易平台,SRV001,数联科技服务,8888.88,0,0,CNY

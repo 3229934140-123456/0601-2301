@@ -231,6 +231,7 @@ class SettlementPeriod:
     period: str
     status: ConfirmStatus = ConfirmStatus.DRAFT
     locked_at: str = ""
+    locked_by: str = ""
     confirmed_by: str = ""
     confirmed_at: str = ""
     trial_count: int = 0
@@ -248,6 +249,7 @@ class SettlementPeriod:
             period=d["period"],
             status=ConfirmStatus(d.get("status", "draft")),
             locked_at=d.get("locked_at", ""),
+            locked_by=d.get("locked_by", ""),
             confirmed_by=d.get("confirmed_by", ""),
             confirmed_at=d.get("confirmed_at", ""),
             trial_count=int(d.get("trial_count", 0)),

@@ -9,6 +9,7 @@ from .models import (
     ConfirmStatus, VoucherStatus, generate_id
 )
 from .storage import DataStore
+from .trial_calculator import recalc_voucher_from_details
 
 
 class VoucherGenerator:
@@ -42,25 +43,18 @@ class VoucherGenerator:
                 "message": f"发现 {len(invalid_details)} 条分账明细的机构ID为空，涉及订单: {', '.join(sorted(invalid_orders))}。请先修正订单的机构信息，重新确认分账。"
             }
 
-        grouped = defaultdict(lambda: {"details": [], "total": 0.0})
-        for d in details:
-            if not d.org_id:
-                continue
-            key = (d.role, d.org_id)
-            grouped[key]["details"].append(d)
-            grouped[key]["total"] += d.final_amount
-            grouped[key]["org_name"] = d.org_name
+        voucher_calc = recalc_voucher_from_details(details)
 
         vouchers: List[PaymentVoucher] = []
-        for (role, org_id), data in grouped.items():
+        for v in voucher_calc["vouchers"]:
             voucher = PaymentVoucher(
                 voucher_id=generate_id("PV"),
                 period=period,
-                role=role,
-                org_id=org_id,
-                org_name=data.get("org_name", ""),
-                total_amount=round(data["total"], 2),
-                order_count=len(data["details"]),
+                role=v["role"],
+                org_id=v["org_id"],
+                org_name=v["org_name"],
+                total_amount=v["total_amount"],
+                order_count=v["order_count"],
                 status=VoucherStatus.CREATED,
                 created_at=datetime.now().isoformat(timespec="seconds"),
                 remark=f"由分账自动生成，操作人: {operator}",
@@ -73,7 +67,8 @@ class VoucherGenerator:
             "success": True,
             "period": period,
             "voucher_count": len(vouchers),
-            "total_amount": round(sum(v.total_amount for v in vouchers), 2),
+            "total_amount": voucher_calc["total_amount"],
+            "detail_total_amount": voucher_calc["total_amount"],
             "vouchers": [v.to_dict() for v in vouchers],
         }
 
@@ -114,5 +109,9 @@ class VoucherGenerator:
         vouchers = self.store.load_vouchers(period)
         if not vouchers:
             return {"success": False, "message": "未找到凭证数据"}
+        total_cents = 0
+        for v in vouchers:
+            total_cents += int(round(v.total_amount * 100))
+        total_amount = round(total_cents / 100, 2)
         self.store.save_vouchers_csv(period, vouchers, output_path)
-        return {"success": True, "path": output_path, "count": len(vouchers)}
+        return {"success": True, "path": output_path, "count": len(vouchers), "total_amount": total_amount}
