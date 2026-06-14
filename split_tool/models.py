@@ -166,6 +166,8 @@ class SplitDetail:
     final_amount: float
     period: str
     remark: str = ""
+    cap_applied: int = 0
+    floor_applied: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -188,6 +190,8 @@ class SplitDetail:
             final_amount=float(d.get("final_amount", 0)),
             period=d.get("period", ""),
             remark=d.get("remark", ""),
+            cap_applied=int(d.get("cap_applied", 0)),
+            floor_applied=int(d.get("floor_applied", 0)),
         )
 
 
@@ -314,6 +318,8 @@ class TrialRecord:
     details: List[SplitDetail] = field(default_factory=list)
     exceptions: List[SplitException] = field(default_factory=list)
     excluded_orders: List[Dict[str, Any]] = field(default_factory=list)
+    cap_stats: Dict[str, Any] = field(default_factory=dict)
+    floor_stats: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -330,6 +336,8 @@ class TrialRecord:
             "details": [d.to_dict() for d in self.details],
             "exceptions": [e.to_dict() for e in self.exceptions],
             "excluded_orders": self.excluded_orders,
+            "cap_stats": self.cap_stats,
+            "floor_stats": self.floor_stats,
         }
 
     @classmethod
@@ -348,6 +356,8 @@ class TrialRecord:
             details=[SplitDetail.from_dict(x) for x in d.get("details", [])],
             exceptions=[SplitException.from_dict(x) for x in d.get("exceptions", [])],
             excluded_orders=d.get("excluded_orders", []),
+            cap_stats=d.get("cap_stats", {}),
+            floor_stats=d.get("floor_stats", {}),
         )
 
 

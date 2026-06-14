@@ -142,3 +142,17 @@ class ReportGenerator:
             return {"success": False, "message": "未找到计算历史"}
         self.store.save_calc_history(period, history, output_path)
         return {"success": True, "path": output_path, "record_count": len(history)}
+
+    def get_cap_floor_stats(self, period: str) -> Dict[str, Any]:
+        """获取封顶保底统计信息"""
+        latest_trial = self.store.get_latest_trial(period)
+        if not latest_trial:
+            return {}
+
+        cap_stats = getattr(latest_trial, "cap_stats", {})
+        floor_stats = getattr(latest_trial, "floor_stats", {})
+
+        return {
+            "cap": cap_stats,
+            "floor": floor_stats,
+        }

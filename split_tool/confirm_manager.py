@@ -82,7 +82,14 @@ class ConfirmManager:
         }
 
     def can_lock(self, period: str) -> Dict[str, Any]:
-        """锁定前的检查：状态必须已确认，且没有新的待处理异常、最新试算覆盖所有订单"""
+        """锁定前的一致性检查
+
+        锁定条件（全部满足）:
+        1. 状态为已确认 (CONFIRMED)
+        2. 没有待处理异常 (open_exception_count = 0)
+        3. 最新试算时间必须 ≤ 确认时间（试算后若有重新试算，则必须重新确认）
+        4. 最新试算的订单集合必须 = 已确认的订单集合
+        """
         period_info = self.store.load_period(period)
         if not period_info:
             return {"can_lock": False, "reason": f"结算周期 {period} 不存在"}
@@ -90,30 +97,47 @@ class ConfirmManager:
         if period_info.status != ConfirmStatus.CONFIRMED:
             if period_info.status == ConfirmStatus.LOCKED:
                 return {"can_lock": False, "reason": "结算周期已锁定"}
+            if period_info.status == ConfirmStatus.DRAFT:
+                return {"can_lock": False, "reason": "分账尚未确认，请先执行 confirm-split --confirm"}
             return {"can_lock": False, "reason": f"只有已确认的分账才能锁定（当前状态: {period_info.status.value}）"}
 
         open_count = self.exception_handler.get_open_exception_count(period)
         if open_count > 0:
             return {
                 "can_lock": False,
-                "reason": f"发现 {open_count} 条未处理异常（可能是确认后又导入了新订单），请先 handle-exception 处理并重新 trial-calc 通过后再锁定",
+                "reason": f"发现 {open_count} 条未处理异常（可能是确认后又导入了新订单或补了规则），请先 handle-exception 处理并重新 trial-calc → confirm-split 后再锁定",
                 "open_exception_count": open_count,
             }
 
         latest_trial = self.store.get_latest_trial(period)
         if not latest_trial:
-            return {"can_lock": False, "reason": "未找到试算记录，请先重新执行 trial-calc"}
+            return {"can_lock": False, "reason": "未找到试算记录，请先重新执行 trial-calc 和 confirm-split"}
+
+        if period_info.confirmed_at and latest_trial.created_at > period_info.confirmed_at:
+            confirmed_details = self.store.load_confirmed_details(period)
+            confirmed_order_ids = {d.order_id for d in confirmed_details} if confirmed_details else set()
+            trial_order_ids = {d.order_id for d in latest_trial.details} if latest_trial.details else set()
+            new_in_trial = trial_order_ids - confirmed_order_ids
+            removed_from_trial = confirmed_order_ids - trial_order_ids
+            extra = []
+            if new_in_trial:
+                extra.append(f"新增订单 {len(new_in_trial)} 笔: {', '.join(sorted(new_in_trial)[:3])}{'...' if len(new_in_trial) > 3 else ''}")
+            if removed_from_trial:
+                extra.append(f"订单消失 {len(removed_from_trial)} 笔: {', '.join(sorted(removed_from_trial)[:3])}{'...' if len(removed_from_trial) > 3 else ''}")
+            return {
+                "can_lock": False,
+                "reason": f"分账确认后有新的试算记录（试算时间 {latest_trial.created_at} > 确认时间 {period_info.confirmed_at}），可能是补了规则或修改了订单。{'，'.join(extra)}。请重新执行 confirm-split --confirm 后再锁定。",
+            }
 
         confirmed_details = self.store.load_confirmed_details(period)
         confirmed_order_ids = {d.order_id for d in confirmed_details} if confirmed_details else set()
         trial_order_ids = {d.order_id for d in latest_trial.details} if latest_trial.details else set()
 
-        if period_info.confirmed_at and latest_trial.created_at < period_info.confirmed_at:
-            if confirmed_order_ids != trial_order_ids:
-                return {
-                    "can_lock": False,
-                    "reason": f"分账确认后订单数据有变动（已确认 {len(confirmed_order_ids)} 笔 vs 最新试算 {len(trial_order_ids)} 笔），请重新执行 trial-calc 和 confirm-split",
-                }
+        if confirmed_order_ids != trial_order_ids:
+            return {
+                "can_lock": False,
+                "reason": f"订单集不一致（已确认 {len(confirmed_order_ids)} 笔 vs 最新试算 {len(trial_order_ids)} 笔），请重新执行 trial-calc 和 confirm-split 后再锁定",
+            }
 
         return {"can_lock": True}
 

@@ -11,7 +11,7 @@ from tabulate import tabulate
 from .storage import DataStore
 from .order_importer import OrderImporter
 from .rule_manager import RuleManager
-from .trial_calculator import SplitCalculator
+from .trial_calculator import SplitCalculator, reconcile_period
 from .exception_handler import ExceptionHandler
 from .confirm_manager import ConfirmManager
 from .voucher_generator import VoucherGenerator
@@ -256,6 +256,36 @@ def trial_calc(ctx: click.Context, period: str, as_json: bool):
                     })
                 _print_table(exc_rows)
                 click.echo("  修正后再次执行 trial-calc 即可纳入分账计算")
+            cap_stats = summary.get("cap_stats", {})
+            floor_stats = summary.get("floor_stats", {})
+            if cap_stats.get("order_count") or floor_stats.get("order_count"):
+                click.echo()
+                click.echo("=== 封顶保底统计 ===")
+                rule_rows = []
+                if cap_stats.get("order_count"):
+                    cap_ids = ", ".join(cap_stats.get("order_ids", [])[:3])
+                    if len(cap_stats.get("order_ids", [])) > 3:
+                        cap_ids += "..."
+                    rule_rows.append({
+                        "类型": "封顶",
+                        "订单数": cap_stats["order_count"],
+                        "明细数": cap_stats["detail_count"],
+                        "合计金额": cap_stats["total_amount"],
+                        "涉及订单": cap_ids,
+                    })
+                if floor_stats.get("order_count"):
+                    floor_ids = ", ".join(floor_stats.get("order_ids", [])[:3])
+                    if len(floor_stats.get("order_ids", [])) > 3:
+                        floor_ids += "..."
+                    rule_rows.append({
+                        "类型": "保底",
+                        "订单数": floor_stats["order_count"],
+                        "明细数": floor_stats["detail_count"],
+                        "合计金额": floor_stats["total_amount"],
+                        "涉及订单": floor_ids,
+                    })
+                _print_table(rule_rows)
+                click.echo("  注：触发封顶/保底的订单，三方合计按封顶值/保底值计算，而非订单净金额")
     except Exception as e:
         click.echo(f"✗ 试算失败: {e}", err=True)
         sys.exit(1)
@@ -358,6 +388,13 @@ def handle_exception(
             _print_table(rows)
         else:
             click.echo("(暂无异常记录)")
+
+        actions = handler.get_next_actions(period)
+        if actions:
+            click.echo()
+            click.echo("=== 下一步建议 ===")
+            for a in actions:
+                click.echo(f"  {a}")
 
 
 # ============ 5. 分账确认 ============
@@ -566,6 +603,87 @@ def gen_voucher(
         _print_table(rows)
 
 
+# ============ 6.5. 对账检查 ============
+
+@main.command("reconcile-period", help="结算周期对账：检查订单、确认明细、凭证、导出文件金额一致性")
+@click.option("--period", required=True, help="结算周期")
+@click.option("--export-file", type=click.Path(exists=True, dir_okay=False), default=None, help="导出的凭证CSV文件路径，用于对账对比")
+@click.option("--json", "as_json", is_flag=True, help="以JSON格式输出")
+@click.pass_context
+def reconcile_period_cmd(ctx: click.Context, period: str, export_file: Optional[str], as_json: bool):
+    store = ctx.obj["store"]
+    try:
+        result = reconcile_period(store, period, export_file)
+        if as_json:
+            _print_json(result)
+        else:
+            click.echo(f"=== 对账检查 - 周期 {period} ===")
+            status_map = {"draft": "草稿", "confirmed": "已确认", "locked": "已锁定"}
+            click.echo(f"周期状态: {status_map.get(result['status'], result['status'])}")
+            click.echo(f"待处理异常: {result['open_exception_count']} 条")
+            click.echo()
+
+            click.echo("=== 各环节金额 ===")
+            item_rows = []
+            for it in result["items"]:
+                item_rows.append({
+                    "环节": it["name"],
+                    "金额": it["amount"],
+                    "说明": it["source"],
+                })
+            _print_table(item_rows)
+            click.echo()
+
+            if result["diffs"]:
+                click.echo("=== 发现差异 ===")
+                diff_rows = []
+                expected_count = 0
+                unexpected_count = 0
+                for d in result["diffs"]:
+                    orders = ", ".join(d.get("involved_orders", [])[:3])
+                    if len(d.get("involved_orders", [])) > 3:
+                        orders += "..."
+                    orgs = ", ".join(d.get("involved_orgs", [])[:3])
+                    if len(d.get("involved_orgs", [])) > 3:
+                        orgs += "..."
+                    note = d.get("expected_note", "")
+                    if d.get("is_expected"):
+                        expected_count += 1
+                        diff_name = f"[正常] {d['name1']} → {d['name2']} {note}"
+                    else:
+                        unexpected_count += 1
+                        diff_name = f"[异常] {d['name1']} → {d['name2']}"
+                    diff_rows.append({
+                        "对比项": diff_name,
+                        "金额1": d["amount1"],
+                        "金额2": d["amount2"],
+                        "差异": d["diff"],
+                        "涉及订单": orders or "-",
+                        "涉及机构": orgs or "-",
+                    })
+                _print_table(diff_rows)
+                if unexpected_count > 0:
+                    click.echo(f"✗ 共发现 {unexpected_count} 处异常差异，请处理后重试")
+                    if expected_count > 0:
+                        click.echo(f"ℹ  另有 {expected_count} 处正常差异（封顶保底规则影响）")
+                else:
+                    click.echo(f"✅ 共发现 {expected_count} 处差异，均为封顶保底规则影响，属正常差异")
+            else:
+                click.echo("✅ 各环节金额完全一致")
+
+            if result["next_actions"]:
+                click.echo()
+                click.echo("=== 下一步建议 ===")
+                for a in result["next_actions"]:
+                    click.echo(f"  {a}")
+
+            if not result["ok"]:
+                sys.exit(1)
+    except Exception as e:
+        click.echo(f"✗ 对账失败: {e}", err=True)
+        sys.exit(1)
+
+
 # ============ 7. 汇总报表 ============
 
 @main.command("report", help="生成汇总报表")
@@ -665,8 +783,9 @@ def report(
 
     summary = generator.get_org_summary(period)
     history = generator.get_calc_history(period)
+    cap_floor_stats = generator.get_cap_floor_stats(period)
     if as_json:
-        _print_json({"org_summary": summary, "calc_history": history})
+        _print_json({"org_summary": summary, "calc_history": history, "cap_floor_stats": cap_floor_stats})
     else:
         click.echo(f"=== 机构汇总 - 周期 {period} ===")
         if not summary:
@@ -687,6 +806,32 @@ def report(
                 })
             _print_table(rows)
         click.echo()
+
+        cap = cap_floor_stats.get("cap", {})
+        floor = cap_floor_stats.get("floor", {})
+        if cap or floor:
+            click.echo("=== 封顶保底统计 ===")
+            cf_rows = []
+            if cap:
+                cf_rows.append({
+                    "类型": "封顶",
+                    "订单数": cap.get("order_count", 0),
+                    "明细数": cap.get("detail_count", 0),
+                    "合计金额": cap.get("total_amount", 0),
+                    "涉及订单": ", ".join(cap.get("order_ids", [])[:5]) + ("..." if len(cap.get("order_ids", [])) > 5 else ""),
+                })
+            if floor:
+                cf_rows.append({
+                    "类型": "保底",
+                    "订单数": floor.get("order_count", 0),
+                    "明细数": floor.get("detail_count", 0),
+                    "合计金额": floor.get("total_amount", 0),
+                    "涉及订单": ", ".join(floor.get("order_ids", [])[:5]) + ("..." if len(floor.get("order_ids", [])) > 5 else ""),
+                })
+            _print_table(cf_rows)
+            click.echo("  注：触发封顶/保底的订单，三方合计按封顶值/保底值计算，而非订单净金额")
+            click.echo()
+
         if history:
             click.echo(f"=== 计算历史（最近 {len(history)} 次）===")
             h_rows = []

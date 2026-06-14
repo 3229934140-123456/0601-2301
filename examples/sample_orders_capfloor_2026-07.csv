@@ -1,0 +1,7 @@
+order_id,product_code,order_date,provider_id,provider_name,channel_id,channel_name,service_id,service_name,order_amount,refund_amount,discount_amount,currency
+ORD20260701001,DATA001,2026-07-01,PROV001,中证数据服务有限公司,CHN001,大数据交易平台,SRV001,数联科技服务,100000.00,0,0,CNY
+ORD20260701002,DATA001,2026-07-01,PROV001,中证数据服务有限公司,CHN001,大数据交易平台,SRV001,数联科技服务,50000.00,0,0,CNY
+ORD20260701003,DATA002,2026-07-02,PROV002,联合征信服务,CHN002,政企数据共享门户,SRV002,智慧数据运营,8888.88,0,0,CNY
+ORD20260701004,DATA002,2026-07-02,PROV002,联合征信服务,CHN002,政企数据共享门户,SRV002,智慧数据运营,9999.99,0,0,CNY
+ORD20260701005,DATA003,2026-07-03,PROV003,汇智数据研究院,CHN003,金融数据服务网,SRV002,智慧数据运营,500.00,0,0,CNY
+ORD20260701006,DATA003,2026-07-03,PROV003,汇智数据研究院,CHN003,金融数据服务网,SRV002,智慧数据运营,300.00,0,0,CNY

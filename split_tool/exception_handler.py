@@ -149,3 +149,67 @@ class ExceptionHandler:
             key = e.status.value
             stats[key] = stats.get(key, 0) + 1
         return stats
+
+    def get_next_actions(self, period: str) -> List[str]:
+        """根据当前周期状态给出后续动作建议
+
+        检查:
+        1. 异常状态（是否有open异常）
+        2. 结算周期状态（draft/confirmed/locked）
+        3. 是否有试算记录
+        4. 试算时间与确认时间的关系
+        5. 是否可以锁定
+        """
+        from .models import ConfirmStatus
+        from .confirm_manager import ConfirmManager
+        from .trial_calculator import reconcile_period
+
+        actions = []
+        period_info = self.store.load_period(period)
+        latest_trial = self.store.get_latest_trial(period)
+        open_count = self.get_open_exception_count(period)
+
+        if open_count > 0:
+            actions.append(f"⚠️  还有 {open_count} 条待处理异常，请先执行: handle-exception --status open 查看")
+            actions.append("   可用 --fix <异常ID> 修复，或 --ignore <异常ID> 忽略该订单")
+            actions.append("   如需修正订单字段，使用: handle-exception --fix-order --order-id <订单号> --field <字段> --value <值>")
+
+        if not latest_trial:
+            if open_count == 0:
+                actions.append("📋 尚未执行试算，请执行: trial-calc --period " + period)
+            return actions
+
+        if period_info is None or period_info.status == ConfirmStatus.DRAFT:
+            if open_count == 0:
+                actions.append("✅ 异常已处理完毕，请执行: trial-calc --period " + period + " 重新试算")
+                if latest_trial.exception_count == 0:
+                    actions.append("💡 试算通过后，执行: confirm-split --period " + period + " --confirm 确认分账")
+        elif period_info.status == ConfirmStatus.CONFIRMED:
+            confirm_mgr = ConfirmManager(self.store)
+            if open_count > 0:
+                actions.append("⚠️  确认后有新异常，需要: handle-exception 处理 → trial-calc 重算 → confirm-split --reset → confirm-split --confirm 重新确认")
+            elif latest_trial.created_at > period_info.confirmed_at:
+                actions.append("⚠️  确认后又重新试算过，请检查数据是否变动，如需更新请: confirm-split --reset → confirm-split --confirm 重新确认")
+            else:
+                can_lock = confirm_mgr.can_lock(period)
+                if can_lock.get("can_lock"):
+                    actions.append("✅ 分账已确认，可执行: confirm-split --period " + period + " --lock 锁定结算周期")
+                    actions.append("💡 锁定后可执行: gen-voucher --period " + period + " --generate 生成付款凭证")
+                else:
+                    actions.append("⚠️  锁定前校验不通过: " + can_lock.get("reason", "未知原因"))
+        elif period_info.status == ConfirmStatus.LOCKED:
+            vouchers = self.store.load_vouchers(period)
+            if not vouchers:
+                actions.append("✅ 周期已锁定，请执行: gen-voucher --period " + period + " --generate 生成付款凭证")
+            else:
+                actions.append("✅ 周期已锁定且凭证已生成，可执行: gen-voucher --period " + period + " --export <文件路径> 导出凭证CSV")
+                actions.append("📊 或执行: report --period " + period + " 生成汇总报表")
+
+        try:
+            rec = reconcile_period(self.store, period)
+            if rec.get("diffs"):
+                actions.append("⚠️  对账发现金额差异，可执行: reconcile-period --period " + period + " 查看详情")
+        except Exception:
+            pass
+
+        return actions
