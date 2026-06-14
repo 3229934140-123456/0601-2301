@@ -210,7 +210,7 @@ def trial_calc(ctx: click.Context, period: str, as_json: bool):
                 _print_table(org_rows)
             click.echo()
             if summary["exceptions_by_type"]:
-                click.echo("=== 异常分布 ===")
+                click.echo("=== 异常分布（待处理） ===")
                 type_map = {
                     "duplicate_order": "重复订单",
                     "missing_info": "缺失信息",
@@ -224,6 +224,38 @@ def trial_calc(ctx: click.Context, period: str, as_json: bool):
                     for k, v in summary["exceptions_by_type"].items()
                 ]
                 _print_table(exc_rows)
+            click.echo()
+            if summary.get("open_exceptions"):
+                click.echo("=== 待处理异常明细 ===")
+                type_map = {
+                    "duplicate_order": "重复订单",
+                    "missing_info": "缺失信息",
+                    "missing_rule": "缺失规则",
+                    "invalid_amount": "金额无效",
+                    "refund_exceed": "退款超额",
+                    "other": "其他",
+                }
+                exc_detail_rows = []
+                for e in summary["open_exceptions"]:
+                    exc_detail_rows.append({
+                        "异常ID": e["exception_id"],
+                        "订单号": e["order_id"] or "-",
+                        "类型": type_map.get(e["exception_type"], e["exception_type"]),
+                        "描述": e["description"],
+                    })
+                _print_table(exc_detail_rows)
+                click.echo("  使用 handle-exception --fix <异常ID> 或 --ignore <异常ID> 处理，或 --fix-order 修正订单字段")
+                click.echo()
+            if summary.get("excluded_orders"):
+                click.echo(f"=== 本次试算排除订单（共 {len(summary['excluded_orders'])} 笔）===")
+                exc_rows = []
+                for o in summary["excluded_orders"]:
+                    exc_rows.append({
+                        "订单号": o["order_id"],
+                        "排除原因": o["reason"],
+                    })
+                _print_table(exc_rows)
+                click.echo("  修正后再次执行 trial-calc 即可纳入分账计算")
     except Exception as e:
         click.echo(f"✗ 试算失败: {e}", err=True)
         sys.exit(1)

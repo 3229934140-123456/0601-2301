@@ -311,6 +311,7 @@ class TrialRecord:
     service_total: float
     details: List[SplitDetail] = field(default_factory=list)
     exceptions: List[SplitException] = field(default_factory=list)
+    excluded_orders: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -326,6 +327,7 @@ class TrialRecord:
             "service_total": self.service_total,
             "details": [d.to_dict() for d in self.details],
             "exceptions": [e.to_dict() for e in self.exceptions],
+            "excluded_orders": self.excluded_orders,
         }
 
     @classmethod
@@ -343,6 +345,7 @@ class TrialRecord:
             service_total=float(d.get("service_total", 0)),
             details=[SplitDetail.from_dict(x) for x in d.get("details", [])],
             exceptions=[SplitException.from_dict(x) for x in d.get("exceptions", [])],
+            excluded_orders=d.get("excluded_orders", []),
         )
 
 

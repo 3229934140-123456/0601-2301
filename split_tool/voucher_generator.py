@@ -34,8 +34,18 @@ class VoucherGenerator:
         if not details:
             return {"success": False, "message": "未找到已确认的分账明细"}
 
+        invalid_details = [d for d in details if not d.org_id]
+        if invalid_details:
+            invalid_orders = set(d.order_id for d in invalid_details)
+            return {
+                "success": False,
+                "message": f"发现 {len(invalid_details)} 条分账明细的机构ID为空，涉及订单: {', '.join(sorted(invalid_orders))}。请先修正订单的机构信息，重新确认分账。"
+            }
+
         grouped = defaultdict(lambda: {"details": [], "total": 0.0})
         for d in details:
+            if not d.org_id:
+                continue
             key = (d.role, d.org_id)
             grouped[key]["details"].append(d)
             grouped[key]["total"] += d.final_amount

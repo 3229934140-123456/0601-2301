@@ -140,18 +140,6 @@ class OrderImporter:
                 ))
                 continue
 
-            if order_amount <= 0:
-                invalid_amount_count += 1
-                exceptions.append(SplitException(
-                    exception_id=generate_id("EXC"),
-                    order_id=order_id,
-                    exception_type=ExceptionType.INVALID_AMOUNT,
-                    description=f"订单金额无效: {order_id}, 金额={order_amount}",
-                    created_at=datetime.now().isoformat(timespec="seconds"),
-                    period=period,
-                ))
-                continue
-
             missing_fields = []
             if not product_code:
                 missing_fields.append("产品编码")
@@ -173,6 +161,17 @@ class OrderImporter:
                     order_id=order_id,
                     exception_type=ExceptionType.MISSING_INFO,
                     description=f"订单缺失信息: {order_id}, 缺少: {', '.join(missing_fields)}",
+                    created_at=datetime.now().isoformat(timespec="seconds"),
+                    period=period,
+                ))
+
+            if order_amount <= 0:
+                invalid_amount_count += 1
+                exceptions.append(SplitException(
+                    exception_id=generate_id("EXC"),
+                    order_id=order_id,
+                    exception_type=ExceptionType.INVALID_AMOUNT,
+                    description=f"订单金额无效: {order_id}, 金额={order_amount}",
                     created_at=datetime.now().isoformat(timespec="seconds"),
                     period=period,
                 ))

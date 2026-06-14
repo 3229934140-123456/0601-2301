@@ -1,0 +1,62 @@
+[
+  {
+    "exception_id": "EXCA70C27C158F9",
+    "order_id": "ORD20260501010",
+    "exception_type": "missing_info",
+    "description": "订单缺失信息: ORD20260501010, 缺少: 渠道方ID",
+    "status": "fixed",
+    "fix_note": "已补全渠道方",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T20:07:53",
+    "created_at": "2026-06-14T20:07:11",
+    "period": "2026-05"
+  },
+  {
+    "exception_id": "EXC40D9EA7733C3",
+    "order_id": "ORD20260501011",
+    "exception_type": "invalid_amount",
+    "description": "订单金额无效: ORD20260501011, 金额=0.0",
+    "status": "fixed",
+    "fix_note": "已修正金额为9999",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T20:08:22",
+    "created_at": "2026-06-14T20:07:11",
+    "period": "2026-05"
+  },
+  {
+    "exception_id": "EXC4C456E3F25E0",
+    "order_id": "ORD20260501007",
+    "exception_type": "missing_rule",
+    "description": "产品 DATA004 未配置分成规则",
+    "status": "ignored",
+    "fix_note": "DATA004暂不结算",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T20:09:32",
+    "created_at": "2026-06-14T20:08:23",
+    "period": "2026-05"
+  },
+  {
+    "exception_id": "EXC8C89B0BB50CE",
+    "order_id": "ORD20260501010",
+    "exception_type": "missing_rule",
+    "description": "产品 DATA005 未配置分成规则",
+    "status": "ignored",
+    "fix_note": "DATA005暂不结算",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T20:09:33",
+    "created_at": "2026-06-14T20:08:23",
+    "period": "2026-05"
+  },
+  {
+    "exception_id": "EXC117E1E391BF0",
+    "order_id": "ORD20260501014",
+    "exception_type": "missing_rule",
+    "description": "产品 DATA006 未配置分成规则",
+    "status": "ignored",
+    "fix_note": "DATA006暂不结算",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T20:09:34",
+    "created_at": "2026-06-14T20:08:23",
+    "period": "2026-05"
+  }
+]

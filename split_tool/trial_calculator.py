@@ -92,37 +92,84 @@ class SplitCalculator:
         exceptions: List[SplitException] = []
         existing_exceptions = self.store.load_exceptions(period)
         open_exception_orders = set()
+        ignored_exception_orders = set()
         open_exceptions_list = []
+        existing_ids = {e.exception_id for e in existing_exceptions}
         for e in existing_exceptions:
             if e.status == ExceptionStatus.OPEN:
                 open_exception_orders.add(e.order_id)
                 open_exceptions_list.append(e)
+            elif e.status == ExceptionStatus.IGNORED:
+                ignored_exception_orders.add(e.order_id)
 
         total_amount = 0.0
         provider_total = 0.0
         channel_total = 0.0
         service_total = 0.0
 
-        missing_products = set()
+        excluded_orders = []
 
         for order in orders:
             if order.order_id in open_exception_orders:
+                exc_for_order = [e for e in open_exceptions_list if e.order_id == order.order_id]
+                reasons = "; ".join(e.description for e in exc_for_order)
+                excluded_orders.append({
+                    "order_id": order.order_id,
+                    "reason": reasons or "存在未处理异常",
+                })
+                continue
+
+            if order.order_id in ignored_exception_orders:
+                excluded_orders.append({
+                    "order_id": order.order_id,
+                    "reason": "异常已忽略，不参与分账",
+                })
                 continue
 
             if order.status in ("refunded", "cancelled") and order.net_amount <= 0:
+                excluded_orders.append({
+                    "order_id": order.order_id,
+                    "reason": f"订单已{order.status.value}且净金额为0",
+                })
+                continue
+
+            if order.order_amount <= 0 or order.net_amount <= 0:
+                excluded_orders.append({
+                    "order_id": order.order_id,
+                    "reason": f"订单金额无效: 订单金额={order.order_amount}, 净金额={order.net_amount}",
+                })
+                continue
+
+            if not order.provider_id or not order.channel_id or not order.service_id:
+                missing = []
+                if not order.provider_id:
+                    missing.append("提供方ID")
+                if not order.channel_id:
+                    missing.append("渠道方ID")
+                if not order.service_id:
+                    missing.append("服务方ID")
+                excluded_orders.append({
+                    "order_id": order.order_id,
+                    "reason": f"机构信息缺失: {', '.join(missing)}",
+                })
                 continue
 
             rule = self.rule_manager.get_rule(order.product_code)
             if not rule:
-                missing_products.add(order.product_code)
-                exceptions.append(SplitException(
-                    exception_id=generate_id("EXC"),
+                exc_id = generate_id("EXC")
+                exc = SplitException(
+                    exception_id=exc_id,
                     order_id=order.order_id,
                     exception_type=ExceptionType.MISSING_RULE,
                     description=f"产品 {order.product_code} 未配置分成规则",
                     created_at=datetime.now().isoformat(timespec="seconds"),
                     period=period,
-                ))
+                )
+                exceptions.append(exc)
+                excluded_orders.append({
+                    "order_id": order.order_id,
+                    "reason": exc.description,
+                })
                 continue
 
             order_details, _ = self.calculate_order_split(order, rule)
@@ -139,13 +186,20 @@ class SplitCalculator:
 
         all_exceptions = open_exceptions_list + exceptions
 
+        if exceptions:
+            merged = list(existing_exceptions)
+            for e in exceptions:
+                if e.exception_id not in existing_ids:
+                    merged.append(e)
+            self.store.save_exceptions(period, merged)
+
         trial = TrialRecord(
             trial_id=generate_id("TR"),
             period=period,
             created_at=datetime.now().isoformat(timespec="seconds"),
-            order_count=len([o for o in orders if o.order_id not in open_exception_orders and o.product_code not in missing_products]),
+            order_count=len(orders) - len(excluded_orders),
             detail_count=len(details),
-            exception_count=len(all_exceptions),
+            exception_count=len([e for e in all_exceptions if e.status == ExceptionStatus.OPEN]),
             total_amount=round(total_amount, 2),
             provider_total=round(provider_total, 2),
             channel_total=round(channel_total, 2),
@@ -153,6 +207,7 @@ class SplitCalculator:
             details=details,
             exceptions=all_exceptions,
         )
+        trial.excluded_orders = excluded_orders
 
         self.store.save_trial(trial)
 
@@ -199,8 +254,16 @@ class SplitCalculator:
             })
 
         exc_by_type = defaultdict(int)
+        open_exc_detail = []
         for e in trial.exceptions:
-            exc_by_type[e.exception_type.value] += 1
+            if e.status == ExceptionStatus.OPEN:
+                exc_by_type[e.exception_type.value] += 1
+                open_exc_detail.append({
+                    "exception_id": e.exception_id,
+                    "order_id": e.order_id,
+                    "exception_type": e.exception_type.value,
+                    "description": e.description,
+                })
 
         return {
             "trial_id": trial.trial_id,
@@ -215,4 +278,6 @@ class SplitCalculator:
             "diff": round(trial.total_amount - (trial.provider_total + trial.channel_total + trial.service_total), 2),
             "org_summary": sorted(summary_list, key=lambda x: (x["role"], x["org_id"])),
             "exceptions_by_type": dict(exc_by_type),
+            "open_exceptions": open_exc_detail,
+            "excluded_orders": getattr(trial, "excluded_orders", []),
         }
