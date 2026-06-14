@@ -8,6 +8,7 @@ import pandas as pd
 
 from .models import Order, OrderStatus, SplitException, ExceptionType, generate_id
 from .storage import DataStore
+from .audit import write_audit
 
 
 COLUMN_MAPPING = {
@@ -214,6 +215,15 @@ class OrderImporter:
         if exceptions:
             old_exceptions = self.store.load_exceptions(period)
             self.store.save_exceptions(period, old_exceptions + exceptions)
+
+        total_amount = sum(o.order_amount for o in new_orders)
+        write_audit(
+            self.store, period, "import_orders", operator="system",
+            detail=f"导入文件 {os.path.basename(file_path)}，新增 {len(new_orders)} 笔，跳过重复 {duplicate_count} 笔",
+            order_count=len(new_orders),
+            amount=round(total_amount, 2),
+            extra={"file": file_path, "duplicates": duplicate_count, "exceptions": len(exceptions)},
+        )
 
         return {
             "total_rows": len(df),

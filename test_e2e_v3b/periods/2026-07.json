@@ -1,0 +1,13 @@
+{
+  "period": "2026-07",
+  "status": "locked",
+  "locked_at": "2026-06-14T21:04:29",
+  "locked_by": "system",
+  "confirmed_by": "system",
+  "confirmed_at": "2026-06-14T21:04:27",
+  "confirmed_trial_id": "TRFB7D630D86A2",
+  "confirmed_amount_fingerprint": "74e0d385870b6441f9a8ccc6ec35368bbf9234b27fa7c909f89db8cd70c37378",
+  "trial_count": 2,
+  "last_trial_at": "2026-06-14T21:04:03",
+  "remark": ""
+}

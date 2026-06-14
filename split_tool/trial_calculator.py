@@ -12,6 +12,7 @@ from .models import (
 )
 from .storage import DataStore
 from .rule_manager import RuleManager
+from .audit import write_audit
 
 
 class SplitCalculator:
@@ -309,6 +310,21 @@ class SplitCalculator:
         period_info.last_trial_at = trial.created_at
         self.store.save_period(period_info)
 
+        write_audit(
+            self.store, period, "trial_calc", operator="system",
+            detail=f"试算ID={trial.trial_id}，参与{trial.order_count}笔订单，{trial.detail_count}条明细，{trial.exception_count}条异常",
+            order_count=trial.order_count,
+            amount=round(total_amount, 2),
+            extra={
+                "trial_id": trial.trial_id,
+                "detail_count": trial.detail_count,
+                "exception_count": trial.exception_count,
+                "excluded_count": len(excluded_orders),
+                "cap_count": cap_stats.get("order_count", 0),
+                "floor_count": floor_stats.get("order_count", 0),
+            },
+        )
+
         return trial
 
     def generate_trial_summary(self, trial: TrialRecord) -> Dict[str, Any]:
@@ -462,16 +478,49 @@ def reconcile_period(store: DataStore, period: str, export_file: Optional[str] =
             "detail_count": len(confirmed_details),
         })
 
+    adjustments = store.load_adjustments(period) if hasattr(store, 'load_adjustments') else []
+    adjustment_reversal_cents = 0
+    adjustment_reissue_cents = 0
+    for a in adjustments:
+        ac = int(round(a.amount * 100))
+        if a.adjustment_type.value == "reversal":
+            adjustment_reversal_cents += ac
+        elif a.adjustment_type.value == "reissue":
+            adjustment_reissue_cents += ac
+
     voucher_cents = 0
     voucher_orders = set()
+    active_vouchers = []
     if vouchers:
         for v in vouchers:
-            voucher_cents += int(round(v.total_amount * 100))
+            if v.status.value != "reversed":
+                voucher_cents += int(round(v.total_amount * 100))
+                active_vouchers.append(v)
         items.append({
-            "name": "已生成凭证-合计",
+            "name": "已生成凭证-合计（不含冲销）",
             "amount": round(voucher_cents / 100, 2),
-            "source": f"共 {len(vouchers)} 张凭证",
-            "voucher_count": len(vouchers),
+            "source": f"共 {len(active_vouchers)} 张有效凭证（已冲销 {len(vouchers) - len(active_vouchers)} 张）",
+            "voucher_count": len(active_vouchers),
+        })
+    else:
+        if vouchers is not None:
+            items.append({
+                "name": "已生成凭证-合计（不含冲销）",
+                "amount": 0.0,
+                "source": "共 0 张凭证",
+                "voucher_count": 0,
+            })
+
+    if adjustments:
+        items.append({
+            "name": "冲销调整-合计",
+            "amount": round(adjustment_reversal_cents / 100, 2),
+            "source": f"共 {len([a for a in adjustments if a.adjustment_type.value == 'reversal'])} 条冲销记录",
+        })
+        items.append({
+            "name": "重开调整-合计",
+            "amount": round(adjustment_reissue_cents / 100, 2),
+            "source": f"共 {len([a for a in adjustments if a.adjustment_type.value == 'reissue'])} 条重开记录",
         })
 
     if export_file:
@@ -504,10 +553,10 @@ def reconcile_period(store: DataStore, period: str, export_file: Optional[str] =
     pairs = [
         ("订单净金额合计", "最新试算-三方合计"),
         ("最新试算-三方合计", "已确认明细-三方合计"),
-        ("已确认明细-三方合计", "已生成凭证-合计"),
+        ("已确认明细-三方合计", "已生成凭证-合计（不含冲销）"),
     ]
     if export_file:
-        pairs.append(("已生成凭证-合计", "导出文件-合计"))
+        pairs.append(("已生成凭证-合计（不含冲销）", "导出文件-合计"))
 
     item_map = {it["name"]: it for it in items}
     for name1, name2 in pairs:

@@ -1,0 +1,26 @@
+[
+  {
+    "exception_id": "EXCDC841617E4C2",
+    "order_id": "ORD20260701005",
+    "exception_type": "missing_rule",
+    "description": "产品 DATA003 未配置分成规则",
+    "status": "fixed",
+    "fix_note": "已补DATA003规则",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T21:05:28",
+    "created_at": "2026-06-14T21:05:16",
+    "period": "2026-08"
+  },
+  {
+    "exception_id": "EXC7600CD9C86D3",
+    "order_id": "ORD20260701006",
+    "exception_type": "missing_rule",
+    "description": "产品 DATA003 未配置分成规则",
+    "status": "fixed",
+    "fix_note": "已补DATA003规则",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T21:05:29",
+    "created_at": "2026-06-14T21:05:16",
+    "period": "2026-08"
+  }
+]

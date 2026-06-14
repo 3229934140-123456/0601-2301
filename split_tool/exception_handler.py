@@ -5,6 +5,7 @@ from datetime import datetime
 
 from .models import SplitException, ExceptionStatus, Order, ExceptionType
 from .storage import DataStore
+from .audit import write_audit
 
 
 class ExceptionHandler:
@@ -95,7 +96,13 @@ class ExceptionHandler:
                 e.fixed_by = operator
                 e.fixed_at = datetime.now().isoformat(timespec="seconds")
                 self.store.save_exceptions(period, exceptions)
-                return {"success": True, "exception": e.to_dict()}
+                remaining = self.get_open_exception_count(period)
+                write_audit(
+                    self.store, period, "exception_fix", operator=operator,
+                    detail=f"修复异常 {exception_id}（订单{e.order_id}，{e.exception_type.value}），剩余待处理{remaining}条",
+                    extra={"exception_id": exception_id, "order_id": e.order_id, "remaining_open": remaining},
+                )
+                return {"success": True, "exception": e.to_dict(), "remaining_open": remaining}
         return {"success": False, "message": f"未找到异常记录 {exception_id}"}
 
     def ignore_exception(
@@ -110,7 +117,13 @@ class ExceptionHandler:
                 e.fixed_by = operator
                 e.fixed_at = datetime.now().isoformat(timespec="seconds")
                 self.store.save_exceptions(period, exceptions)
-                return {"success": True, "exception": e.to_dict()}
+                remaining = self.get_open_exception_count(period)
+                write_audit(
+                    self.store, period, "exception_ignore", operator=operator,
+                    detail=f"忽略异常 {exception_id}（订单{e.order_id}，{e.exception_type.value}），剩余待处理{remaining}条",
+                    extra={"exception_id": exception_id, "order_id": e.order_id, "remaining_open": remaining},
+                )
+                return {"success": True, "exception": e.to_dict(), "remaining_open": remaining}
         return {"success": False, "message": f"未找到异常记录 {exception_id}"}
 
     def fix_order_field(

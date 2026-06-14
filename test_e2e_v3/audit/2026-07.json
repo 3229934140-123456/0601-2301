@@ -1,0 +1,184 @@
+[
+  {
+    "audit_id": "AUD04D688DE1C2D",
+    "period": "2026-07",
+    "action": "import_orders",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:00:54",
+    "detail": "导入文件 sample_orders_capfloor_2026-07.csv，新增 6 笔，跳过重复 0 笔",
+    "order_count": 6,
+    "amount": 169688.87,
+    "extra": {
+      "file": "examples/sample_orders_capfloor_2026-07.csv",
+      "duplicates": 0,
+      "exceptions": 0
+    }
+  },
+  {
+    "audit_id": "AUDEC83BDC4A2BE",
+    "period": "2026-07",
+    "action": "config_rule_add",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:01:09",
+    "detail": "新增产品 DATA001 分成规则: 0.6/0.25/0.15 封顶=50000.0",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "product_code": "DATA001",
+      "action": "add"
+    }
+  },
+  {
+    "audit_id": "AUD0308E288C8C8",
+    "period": "2026-07",
+    "action": "config_rule_add",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:01:09",
+    "detail": "新增产品 DATA002 分成规则: 0.55/0.3/0.15",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "product_code": "DATA002",
+      "action": "add"
+    }
+  },
+  {
+    "audit_id": "AUD7B49FB1DAF8A",
+    "period": "2026-07",
+    "action": "config_rule_add",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:01:10",
+    "detail": "新增产品 DATA003 分成规则: 0.65/0.2/0.15 保底=1000.0",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "product_code": "DATA003",
+      "action": "add"
+    }
+  },
+  {
+    "audit_id": "AUD6812C0E9765F",
+    "period": "2026-07",
+    "action": "trial_calc",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:01:18",
+    "detail": "试算ID=TR4AB70BFCD83E，参与6笔订单，18条明细，0条异常",
+    "order_count": 6,
+    "amount": 169688.87,
+    "extra": {
+      "trial_id": "TR4AB70BFCD83E",
+      "detail_count": 18,
+      "exception_count": 0,
+      "excluded_count": 0,
+      "cap_count": 1,
+      "floor_count": 2
+    }
+  },
+  {
+    "audit_id": "AUDEA620B33D7BD",
+    "period": "2026-07",
+    "action": "confirm_split",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:02:13",
+    "detail": "确认分账，试算ID=TR4AB70BFCD83E，金额指纹=b6501cfe...，6笔订单，三方合计120888.87",
+    "order_count": 6,
+    "amount": 120888.87,
+    "extra": {
+      "trial_id": "TR4AB70BFCD83E",
+      "amount_fingerprint": "b6501cfe7b4b800f4ef393a072d40e2fa250f6dc5934c462b460cb0673702f02",
+      "provider_total": 71688.87,
+      "channel_total": 31066.66,
+      "service_total": 18133.34
+    }
+  },
+  {
+    "audit_id": "AUD680C49DF50D7",
+    "period": "2026-07",
+    "action": "gen_voucher",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:02:25",
+    "detail": "生成8张凭证，合计120888.87",
+    "order_count": 18,
+    "amount": 120888.87,
+    "extra": {
+      "voucher_count": 8
+    }
+  },
+  {
+    "audit_id": "AUD1B15E4CF5DBD",
+    "period": "2026-07",
+    "action": "lock_period",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:02:26",
+    "detail": "锁定结算周期，6笔订单，三方合计120888.87",
+    "order_count": 6,
+    "amount": 120888.87,
+    "extra": {
+      "trial_id": "TR4AB70BFCD83E",
+      "amount_fingerprint": "b6501cfe..."
+    }
+  },
+  {
+    "audit_id": "AUDEEDD033A33A9",
+    "period": "2026-07",
+    "action": "export_vouchers",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:02:27",
+    "detail": "导出凭证CSV到 test_e2e_v3/vouchers.csv，8条，合计120888.87",
+    "order_count": 0,
+    "amount": 120888.87,
+    "extra": {
+      "path": "test_e2e_v3/vouchers.csv",
+      "count": 8
+    }
+  },
+  {
+    "audit_id": "AUD3FFAE286DF15",
+    "period": "2026-07",
+    "action": "reverse_and_reissue",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:02:38",
+    "detail": "冲销8张凭证(合计120888.87)，重开8张凭证(合计120888.87)，原因: 测试冲销重开流程",
+    "order_count": 0,
+    "amount": 120888.87,
+    "extra": {
+      "reversed_count": 8,
+      "reversal_total": 120888.87,
+      "reissued_count": 8,
+      "reissue_total": 120888.87
+    }
+  },
+  {
+    "audit_id": "AUD64C343FBFA8E",
+    "period": "2026-07",
+    "action": "import_orders",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:03:08",
+    "detail": "导入文件 new_order_after_confirm_v2.csv，新增 1 笔，跳过重复 0 笔",
+    "order_count": 1,
+    "amount": 8888.88,
+    "extra": {
+      "file": "examples/new_order_after_confirm_v2.csv",
+      "duplicates": 0,
+      "exceptions": 0
+    }
+  },
+  {
+    "audit_id": "AUD4036307B4CC9",
+    "period": "2026-07",
+    "action": "trial_calc",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:03:09",
+    "detail": "试算ID=TR625B32F8273D，参与6笔订单，18条明细，1条异常",
+    "order_count": 6,
+    "amount": 169688.87,
+    "extra": {
+      "trial_id": "TR625B32F8273D",
+      "detail_count": 18,
+      "exception_count": 1,
+      "excluded_count": 1,
+      "cap_count": 1,
+      "floor_count": 2
+    }
+  }
+]

@@ -7,7 +7,8 @@ from pathlib import Path
 
 from .models import (
     Order, SplitRule, SplitDetail, SplitException,
-    SettlementPeriod, PaymentVoucher, TrialRecord
+    SettlementPeriod, PaymentVoucher, TrialRecord,
+    AuditRecord, VoucherAdjustment
 )
 
 
@@ -23,7 +24,8 @@ class DataStore:
     def _ensure_dirs(self):
         dirs = [
             "orders", "rules", "trials", "exceptions",
-            "confirmed", "vouchers", "reports", "periods"
+            "confirmed", "vouchers", "reports", "periods",
+            "audit", "adjustments"
         ]
         for d in dirs:
             (self.base_dir / d).mkdir(parents=True, exist_ok=True)
@@ -220,3 +222,34 @@ class DataStore:
                     round(h["total_amount"], 2), round(h["provider_total"], 2),
                     round(h["channel_total"], 2), round(h["service_total"], 2)
                 ])
+
+    # ============ 审计日志管理 ============
+
+    def append_audit_log(self, record: AuditRecord):
+        path = self._path("audit", f"{record.period}.json")
+        existing = self._read_json(path) or []
+        existing.append(record.to_dict())
+        self._write_json(path, existing)
+
+    def load_audit_log(self, period: str) -> List[AuditRecord]:
+        data = self._read_json(self._path("audit", f"{period}.json"))
+        if not data:
+            return []
+        return [AuditRecord.from_dict(d) for d in data]
+
+    # ============ 凭证调整记录管理 ============
+
+    def save_adjustments(self, period: str, adjustments: List[VoucherAdjustment]):
+        data = [a.to_dict() for a in adjustments]
+        self._write_json(self._path("adjustments", f"{period}.json"), data)
+
+    def load_adjustments(self, period: str) -> List[VoucherAdjustment]:
+        data = self._read_json(self._path("adjustments", f"{period}.json"))
+        if not data:
+            return []
+        return [VoucherAdjustment.from_dict(d) for d in data]
+
+    def append_adjustments(self, period: str, new_adjustments: List[VoucherAdjustment]):
+        existing = self.load_adjustments(period)
+        existing.extend(new_adjustments)
+        self.save_adjustments(period, existing)

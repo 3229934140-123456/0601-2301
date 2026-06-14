@@ -46,6 +46,12 @@ class VoucherStatus(str, Enum):
     CREATED = "created"
     APPROVED = "approved"
     PAID = "paid"
+    REVERSED = "reversed"
+
+
+class AdjustmentType(str, Enum):
+    REVERSAL = "reversal"
+    REISSUE = "reissue"
 
 
 def generate_id(prefix: str = "") -> str:
@@ -238,6 +244,8 @@ class SettlementPeriod:
     locked_by: str = ""
     confirmed_by: str = ""
     confirmed_at: str = ""
+    confirmed_trial_id: str = ""
+    confirmed_amount_fingerprint: str = ""
     trial_count: int = 0
     last_trial_at: str = ""
     remark: str = ""
@@ -256,6 +264,8 @@ class SettlementPeriod:
             locked_by=d.get("locked_by", ""),
             confirmed_by=d.get("confirmed_by", ""),
             confirmed_at=d.get("confirmed_at", ""),
+            confirmed_trial_id=d.get("confirmed_trial_id", ""),
+            confirmed_amount_fingerprint=d.get("confirmed_amount_fingerprint", ""),
             trial_count=int(d.get("trial_count", 0)),
             last_trial_at=d.get("last_trial_at", ""),
             remark=d.get("remark", ""),
@@ -377,3 +387,72 @@ class OrgSummary:
         d = asdict(self)
         d["role"] = self.role.value
         return d
+
+
+@dataclass
+class AuditRecord:
+    audit_id: str
+    period: str
+    action: str
+    operator: str
+    timestamp: str
+    detail: str = ""
+    order_count: int = 0
+    amount: float = 0.0
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "AuditRecord":
+        return cls(
+            audit_id=d["audit_id"],
+            period=d.get("period", ""),
+            action=d.get("action", ""),
+            operator=d.get("operator", ""),
+            timestamp=d.get("timestamp", ""),
+            detail=d.get("detail", ""),
+            order_count=int(d.get("order_count", 0)),
+            amount=float(d.get("amount", 0)),
+            extra=d.get("extra", {}),
+        )
+
+
+@dataclass
+class VoucherAdjustment:
+    adjustment_id: str
+    period: str
+    adjustment_type: AdjustmentType
+    original_voucher_id: str
+    new_voucher_id: str = ""
+    org_id: str = ""
+    org_name: str = ""
+    role: SplitRole = SplitRole.PROVIDER
+    amount: float = 0.0
+    operator: str = ""
+    created_at: str = ""
+    reason: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["adjustment_type"] = self.adjustment_type.value
+        d["role"] = self.role.value
+        return d
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "VoucherAdjustment":
+        return cls(
+            adjustment_id=d["adjustment_id"],
+            period=d.get("period", ""),
+            adjustment_type=AdjustmentType(d.get("adjustment_type", "reversal")),
+            original_voucher_id=d.get("original_voucher_id", ""),
+            new_voucher_id=d.get("new_voucher_id", ""),
+            org_id=d.get("org_id", ""),
+            org_name=d.get("org_name", ""),
+            role=SplitRole(d.get("role", "provider")),
+            amount=float(d.get("amount", 0)),
+            operator=d.get("operator", ""),
+            created_at=d.get("created_at", ""),
+            reason=d.get("reason", ""),
+        )

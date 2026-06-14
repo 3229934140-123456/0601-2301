@@ -83,11 +83,13 @@ def import_orders(ctx: click.Context, file_path: str, period: str, as_json: bool
 @click.option("--cap", type=float, default=None, help="单笔分账封顶金额")
 @click.option("--floor", type=float, default=None, help="单笔分账保底金额")
 @click.option("--desc", default="", help="规则描述")
+@click.option("--period", default="", help="关联结算周期（用于审计追踪）")
 @click.option("--json", "as_json", is_flag=True, help="以JSON格式输出")
 @click.pass_context
 def config_rule(
     ctx: click.Context, product_code: str, provider: float, channel: float,
-    service: float, cap: Optional[float], floor: Optional[float], desc: str, as_json: bool
+    service: float, cap: Optional[float], floor: Optional[float], desc: str,
+    period: str, as_json: bool
 ):
     store = ctx.obj["store"]
     manager = RuleManager(store)
@@ -100,7 +102,7 @@ def config_rule(
         floor_amount=floor,
         description=desc,
     )
-    result = manager.add_rule(rule)
+    result = manager.add_rule(rule, period=period)
     if as_json:
         _print_json(result)
     else:
@@ -321,6 +323,20 @@ def handle_exception(
         else:
             if result["success"]:
                 click.echo(f"✓ 异常 {fix_id} 已标记为已修复")
+                remaining = result.get("remaining_open", -1)
+                if remaining == 0:
+                    click.echo()
+                    click.echo("=== ✅ 所有异常已处理完毕！===")
+                    click.echo("  📋 请执行: trial-calc --period " + period + " 重新试算")
+                    actions = handler.get_next_actions(period)
+                    for a in actions:
+                        click.echo(f"  {a}")
+                elif remaining > 0:
+                    click.echo(f"  ℹ️  还有 {remaining} 条待处理异常")
+                    actions = handler.get_next_actions(period)
+                    if actions:
+                        for a in actions[:2]:
+                            click.echo(f"  {a}")
             else:
                 click.echo(f"✗ {result['message']}")
         return
@@ -332,6 +348,20 @@ def handle_exception(
         else:
             if result["success"]:
                 click.echo(f"✓ 异常 {ignore_id} 已标记为已忽略")
+                remaining = result.get("remaining_open", -1)
+                if remaining == 0:
+                    click.echo()
+                    click.echo("=== ✅ 所有异常已处理完毕！===")
+                    click.echo("  📋 请执行: trial-calc --period " + period + " 重新试算")
+                    actions = handler.get_next_actions(period)
+                    for a in actions:
+                        click.echo(f"  {a}")
+                elif remaining > 0:
+                    click.echo(f"  ℹ️  还有 {remaining} 条待处理异常")
+                    actions = handler.get_next_actions(period)
+                    if actions:
+                        for a in actions[:2]:
+                            click.echo(f"  {a}")
             else:
                 click.echo(f"✗ {result['message']}")
         return
@@ -505,16 +535,54 @@ def confirm_split(
 @click.option("--approve", "approve_id", default=None, help="审批指定凭证")
 @click.option("--pay", "pay_id", default=None, help="标记指定凭证为已付款")
 @click.option("--export", "export_path", type=click.Path(), default=None, help="导出凭证CSV到指定路径")
+@click.option("--reverse-reissue", "do_reverse", is_flag=True, help="冲销原凭证并重开（需先修改确认结果）")
+@click.option("--reason", default="", help="冲销重开原因")
 @click.option("--operator", default="system", help="操作人标识")
 @click.option("--json", "as_json", is_flag=True, help="以JSON格式输出")
 @click.pass_context
 def gen_voucher(
     ctx: click.Context, period: str, do_generate: bool,
     approve_id: Optional[str], pay_id: Optional[str],
-    export_path: Optional[str], operator: str, as_json: bool
+    export_path: Optional[str], do_reverse: bool, reason: str,
+    operator: str, as_json: bool
 ):
     store = ctx.obj["store"]
     generator = VoucherGenerator(store)
+
+    if do_reverse:
+        result = generator.reverse_and_reissue(period, reason=reason, operator=operator)
+        if as_json:
+            _print_json(result)
+        else:
+            if result["success"]:
+                click.echo(f"✓ 冲销重开完成 - 周期: {period}")
+                rows = [
+                    ["冲销凭证数", result["reversed_count"]],
+                    ["冲销金额", result["reversal_total"]],
+                    ["重开凭证数", result["reissued_count"]],
+                    ["重开金额", result["reissue_total"]],
+                    ["调整记录数", result["adjustment_count"]],
+                ]
+                _print_table(rows, headers=["项目", "值"])
+                click.echo()
+                click.echo("=== 重开凭证 ===")
+                status_map = {"created": "待审批", "approved": "已审批", "paid": "已付款", "reversed": "已冲销"}
+                role_map = {"provider": "提供方", "channel": "渠道方", "service": "服务方"}
+                v_rows = []
+                for v in result["new_vouchers"]:
+                    v_rows.append({
+                        "凭证号": v["voucher_id"],
+                        "角色": role_map.get(v["role"], v["role"]),
+                        "机构ID": v["org_id"],
+                        "机构名称": v["org_name"] or "-",
+                        "金额": v["total_amount"],
+                        "状态": status_map.get(v["status"], v["status"]),
+                    })
+                _print_table(v_rows)
+            else:
+                click.echo(f"✗ 冲销重开失败: {result['message']}")
+                sys.exit(1)
+        return
 
     if do_generate:
         result = generator.generate_vouchers(period, operator)
@@ -524,7 +592,7 @@ def gen_voucher(
             if result["success"]:
                 click.echo(f"✓ 凭证生成成功 - 共 {result['voucher_count']} 张，合计 {result['total_amount']}")
                 click.echo()
-                status_map = {"created": "待审批", "approved": "已审批", "paid": "已付款"}
+                status_map = {"created": "待审批", "approved": "已审批", "paid": "已付款", "reversed": "已冲销"}
                 role_map = {"provider": "提供方", "channel": "渠道方", "service": "服务方"}
                 rows = []
                 for v in result["vouchers"]:
@@ -848,6 +916,57 @@ def report(
                     "服务方": h["service_total"],
                 })
             _print_table(h_rows)
+
+
+# ============ 8. 审计日志 ============
+
+@main.command("audit-log", help="查看结算周期审计流水")
+@click.option("--period", required=True, help="结算周期")
+@click.option("--action", default=None, help="按操作类型过滤（如: import_orders, trial_calc, confirm_split）")
+@click.option("--last", type=int, default=None, help="只显示最近N条")
+@click.option("--json", "as_json", is_flag=True, help="以JSON格式输出")
+@click.pass_context
+def audit_log(ctx: click.Context, period: str, action: Optional[str], last: Optional[int], as_json: bool):
+    store = ctx.obj["store"]
+    records = store.load_audit_log(period)
+    if action:
+        records = [r for r in records if r.action == action]
+    records = sorted(records, key=lambda r: r.timestamp, reverse=True)
+    if last:
+        records = records[:last]
+    if as_json:
+        _print_json([r.to_dict() for r in records])
+    else:
+        if not records:
+            click.echo(f"(周期 {period} 暂无审计记录)")
+            return
+        action_map = {
+            "import_orders": "导入订单",
+            "config_rule_add": "新增规则",
+            "config_rule_update": "更新规则",
+            "config_rule_delete": "删除规则",
+            "trial_calc": "试算",
+            "exception_fix": "修复异常",
+            "exception_ignore": "忽略异常",
+            "confirm_split": "确认分账",
+            "reset_to_draft": "重置确认",
+            "lock_period": "锁定周期",
+            "gen_voucher": "生成凭证",
+            "export_vouchers": "导出凭证",
+            "reverse_and_reissue": "冲销重开",
+        }
+        rows = []
+        for r in records:
+            rows.append({
+                "时间": r.timestamp,
+                "操作": action_map.get(r.action, r.action),
+                "操作人": r.operator,
+                "订单数": r.order_count,
+                "金额": r.amount,
+                "详情": r.detail[:60] + ("..." if len(r.detail) > 60 else ""),
+            })
+        click.echo(f"=== 审计流水 - 周期 {period}（共 {len(records)} 条）===")
+        _print_table(rows)
 
 
 if __name__ == "__main__":

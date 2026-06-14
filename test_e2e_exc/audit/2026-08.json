@@ -1,0 +1,107 @@
+[
+  {
+    "audit_id": "AUDC647F81B80B4",
+    "period": "2026-08",
+    "action": "import_orders",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:05:14",
+    "detail": "导入文件 sample_orders_capfloor_2026-07.csv，新增 6 笔，跳过重复 0 笔",
+    "order_count": 6,
+    "amount": 169688.87,
+    "extra": {
+      "file": "examples/sample_orders_capfloor_2026-07.csv",
+      "duplicates": 0,
+      "exceptions": 0
+    }
+  },
+  {
+    "audit_id": "AUDDB4CA76CBA28",
+    "period": "2026-08",
+    "action": "config_rule_add",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:05:15",
+    "detail": "新增产品 DATA001 分成规则: 0.6/0.25/0.15",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "product_code": "DATA001",
+      "action": "add"
+    }
+  },
+  {
+    "audit_id": "AUD6477A5B04FDC",
+    "period": "2026-08",
+    "action": "config_rule_add",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:05:15",
+    "detail": "新增产品 DATA002 分成规则: 0.55/0.3/0.15",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "product_code": "DATA002",
+      "action": "add"
+    }
+  },
+  {
+    "audit_id": "AUD0740B2682A40",
+    "period": "2026-08",
+    "action": "trial_calc",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:05:16",
+    "detail": "试算ID=TRC4DA4306418E，参与4笔订单，12条明细，2条异常",
+    "order_count": 4,
+    "amount": 168888.87,
+    "extra": {
+      "trial_id": "TRC4DA4306418E",
+      "detail_count": 12,
+      "exception_count": 2,
+      "excluded_count": 2,
+      "cap_count": 0,
+      "floor_count": 0
+    }
+  },
+  {
+    "audit_id": "AUD10A87D4850AE",
+    "period": "2026-08",
+    "action": "config_rule_add",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:05:27",
+    "detail": "新增产品 DATA003 分成规则: 0.65/0.2/0.15 保底=1000.0",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "product_code": "DATA003",
+      "action": "add"
+    }
+  },
+  {
+    "audit_id": "AUD6FC7C1D6BD10",
+    "period": "2026-08",
+    "action": "exception_fix",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:05:28",
+    "detail": "修复异常 EXCDC841617E4C2（订单ORD20260701005，missing_rule），剩余待处理1条",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "exception_id": "EXCDC841617E4C2",
+      "order_id": "ORD20260701005",
+      "remaining_open": 1
+    }
+  },
+  {
+    "audit_id": "AUD99986B1FF418",
+    "period": "2026-08",
+    "action": "exception_fix",
+    "operator": "system",
+    "timestamp": "2026-06-14T21:05:29",
+    "detail": "修复异常 EXC7600CD9C86D3（订单ORD20260701006，missing_rule），剩余待处理0条",
+    "order_count": 0,
+    "amount": 0.0,
+    "extra": {
+      "exception_id": "EXC7600CD9C86D3",
+      "order_id": "ORD20260701006",
+      "remaining_open": 0
+    }
+  }
+]
