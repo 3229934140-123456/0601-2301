@@ -1,0 +1,12 @@
+﻿凭证号,结算周期,角色,机构ID,机构名称,订单数量,总金额,状态,创建时间,备注
+PV6BC212A6BDBA,2026-05,provider,PROV001,中证数据服务有限公司,5,31380.0,paid,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PV1C24223EA00A,2026-05,channel,CHN001,大数据交易平台,6,31525.0,paid,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PVBDBD4555973A,2026-05,service,SRV001,数联科技服务,7,21750.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PVDEF3DAEB559B,2026-05,provider,PROV002,联合征信服务,3,54175.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PVAD123319634B,2026-05,channel,CHN002,政企数据共享门户,2,3200.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PV499730E8FC0D,2026-05,service,SRV002,智慧数据运营,5,15795.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PV249DE080EFB3,2026-05,provider,PROV003,汇智数据研究院,2,21775.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PVA1C39F9C26DF,2026-05,channel,CHN003,金融数据服务网,3,18200.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PV8F39B5E053A1,2026-05,provider,PROV004,物联数据科技,1,6000.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PV3D31637D3656,2026-05,provider,PROV005,智慧医疗数据中心,1,29000.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator
+PVE80D840E1B27,2026-05,channel,,渠道方缺失,1,13500.0,created,2026-06-14T19:56:26,由分账自动生成，操作人: test_operator

@@ -1,0 +1,26 @@
+[
+  {
+    "exception_id": "EXC4502A3B2FD14",
+    "order_id": "ORD20260501010",
+    "exception_type": "missing_info",
+    "description": "订单缺失信息: ORD20260501010, 缺少: 渠道方ID",
+    "status": "fixed",
+    "fix_note": "测试自动修复-missing_info",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T19:56:25",
+    "created_at": "2026-06-14T19:56:25",
+    "period": "2026-05"
+  },
+  {
+    "exception_id": "EXCE5DC65972C53",
+    "order_id": "ORD20260501011",
+    "exception_type": "invalid_amount",
+    "description": "订单金额无效: ORD20260501011, 金额=0.0",
+    "status": "fixed",
+    "fix_note": "测试自动修复-invalid_amount",
+    "fixed_by": "system",
+    "fixed_at": "2026-06-14T19:56:26",
+    "created_at": "2026-06-14T19:56:25",
+    "period": "2026-05"
+  }
+]

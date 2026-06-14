@@ -1,0 +1,57 @@
+[
+  {
+    "product_code": "DATA001",
+    "provider_rate": 0.6,
+    "channel_rate": 0.25,
+    "service_rate": 0.15,
+    "cap_amount": null,
+    "floor_amount": null,
+    "effective_date": "",
+    "expiry_date": "",
+    "description": "企业信用画像"
+  },
+  {
+    "product_code": "DATA002",
+    "provider_rate": 0.55,
+    "channel_rate": 0.3,
+    "service_rate": 0.15,
+    "cap_amount": 50000.0,
+    "floor_amount": 1000.0,
+    "effective_date": "",
+    "expiry_date": "",
+    "description": "金融风控评分模型"
+  },
+  {
+    "product_code": "DATA003",
+    "provider_rate": 0.65,
+    "channel_rate": 0.2,
+    "service_rate": 0.15,
+    "cap_amount": null,
+    "floor_amount": null,
+    "effective_date": "",
+    "expiry_date": "",
+    "description": "消费者行为洞察"
+  },
+  {
+    "product_code": "DATA004",
+    "provider_rate": 0.5,
+    "channel_rate": 0.3,
+    "service_rate": 0.2,
+    "cap_amount": null,
+    "floor_amount": null,
+    "effective_date": "",
+    "expiry_date": "",
+    "description": "物流轨迹数据"
+  },
+  {
+    "product_code": "DATA005",
+    "provider_rate": 0.58,
+    "channel_rate": 0.27,
+    "service_rate": 0.15,
+    "cap_amount": null,
+    "floor_amount": null,
+    "effective_date": "",
+    "expiry_date": "",
+    "description": "医疗影像数据"
+  }
+]

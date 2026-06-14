@@ -1,0 +1,10 @@
+{
+  "period": "2026-05",
+  "status": "locked",
+  "locked_at": "2026-06-14T19:56:26",
+  "confirmed_by": "test_operator",
+  "confirmed_at": "2026-06-14T19:56:26",
+  "trial_count": 2,
+  "last_trial_at": "2026-06-14T19:56:26",
+  "remark": ""
+}
